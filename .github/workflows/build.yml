@@ -12,11 +12,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Extract ZIP if uploaded
+      - name: Extract ZIP and flatten files
         run: |
           if ls *.zip 1> /dev/null 2>&1; then
-            echo "Unzipping file..."
             unzip -o *.zip
+            # If files were inside a nested folder, bring them out
+            if [ ! -f "build.gradle.kts" ] && [ ! -f "build.gradle" ]; then
+              cp -r */* . 2>/dev/null || true
+            fi
           fi
 
       - name: Set up JDK 17
@@ -25,15 +28,23 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+      - name: Set execute permission for gradlew
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x gradlew
+          fi
 
-      - name: Build APK
-        run: gradle assembleDebug
+      - name: Build APK with Gradle
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug --stacktrace
+          else
+            gradle assembleDebug --stacktrace
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: MusicPlayer-APK
-          path: "**/build/outputs/apk/debug/*.apk"
-          
+          path: "**/build/outputs/apk/**/*.apk"
